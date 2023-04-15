@@ -8,7 +8,7 @@ Many contracts are deployed with the [OpenZepellin Pausable Module](https://docs
 ## Architecture
 Proceed with caution, this is a proof of concept.
 
-The components required are an off-chain zk-evm proof generator which simulates a transaction and shows that a certain protocol invariant is violated. (This invariant, for example, could be: user cannot withdraw more than their balance). This is found in /prover. To compile the circuit run:
+The components required are an off-chain zk-evm proof generator which simulates a transaction and shows that a certain protocol invariant is violated. (This invariant, for example, could be: user cannot withdraw more than their balance). This is found in [Prover](/prover). To compile the circuit run:
 
 `cargo build --release`
 
