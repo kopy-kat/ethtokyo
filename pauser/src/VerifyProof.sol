@@ -1,13 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity <0.9.0;
 
+interface Protocol {
+    function pause() external;
+}
+
 contract VerifyProof {
     /* ----------------------------- STORAGE ---------------------------------- */
     mapping(bytes32 => bytes32) public stateRoots;
     mapping(bytes32 => bytes32) commitments;
 
     /* ----------------------------- EXTERNAL Functions ---------------------------------- */
-    function submitProof(bytes calldata witness) external {
+    function pauseProtocol(
+        address protocol,
+        bytes calldata proof,
+        bytes calldata witness
+    ) external {
+        require(_verifyProof(proof, witness), "invalid proof");
+        Protocol(protocol).pause();
+    }
+
+    function _verifyProof(
+        bytes calldata proof,
+        bytes calldata witness
+    ) internal {
+        require(proof.length > 511, "PROOF_LEN");
         emit ProofSubmitted();
 
         (
@@ -31,12 +48,70 @@ contract VerifyProof {
             true
         );
 
-        bytes32 hash;
+        bytes32 expectedCommitmentHash;
         assembly {
-            hash := keccak256(add(publicInput, 32), mul(mload(publicInput), 32))
+            expectedCommitmentHash := keccak256(
+                add(publicInput, 32),
+                mul(mload(publicInput), 32)
+            )
         }
-        commitments[blockHash] = hash;
-        stateRoots[blockHash] = blockStateRoot;
+
+        assembly {
+            // function Error(string)
+            function revertWith(msg) {
+                mstore(0, shl(224, 0x08c379a0))
+                mstore(4, 32)
+                mstore(68, msg)
+                let msgLen
+                for {
+
+                } msg {
+
+                } {
+                    msg := shl(8, msg)
+                    msgLen := add(msgLen, 1)
+                }
+                mstore(36, msgLen)
+                revert(0, 100)
+            }
+
+            // verify commitment hash
+            {
+                // 5 * 32
+                let len := 160
+                let ptr := mload(64)
+                // skip `blockHash, address, is_aggregated`
+                calldatacopy(ptr, add(proof.offset, 96), len)
+                let hash := keccak256(ptr, len)
+                if iszero(eq(hash, expectedCommitmentHash)) {
+                    revertWith("commitment hash")
+                }
+            }
+
+            {
+                // call contract at `addr` for proof verification
+                let offset := add(proof.offset, 32)
+                let addr := calldataload(offset)
+                switch extcodesize(addr)
+                case 0 {
+                    // no code at `addr`
+                    revertWith("verifier missing")
+                }
+
+                let len := sub(proof.length, 96)
+                offset := add(offset, 64)
+                let memPtr := mload(64)
+                calldatacopy(memPtr, offset, len)
+                let success := staticcall(gas(), addr, memPtr, len, 0, 0)
+                switch success
+                case 0 {
+                    // plonk verification failed
+                    //returndatacopy(0, 0, returndatasize())
+                    //revert(0, returndatasize())
+                    revertWith("verifier failed")
+                }
+            }
+        }
     }
 
     /* ----------------------------- INTERNAL Functions ---------------------------------- */
