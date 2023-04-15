@@ -12,4 +12,4 @@ The components required are an off-chain zk-evm proof generator which simulates 
 
 `cargo build --release`
 
-This proof can be verified on-chain in /pauser which subsequently calls the pause() function on our exploitable contract in /exploitable-contract.
+This proof can be [verified](/pauser) on-chain in which subsequently calls the pause() function on our [exploitable contract](/exploitable-contract).
